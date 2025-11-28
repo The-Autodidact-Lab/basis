@@ -27,9 +27,10 @@ JACK -- LIT REVIEW:
 
 # 28 Nov
 NEXT:
-- [ ] finish up evals framework + scale up evals (1-2h_)
-- [ ] implement base multi-agent system (1h)
-- [ ] add Basis contextualizer/ID system + fine-tune (3h)
+- [x] implement base multi-agent system (1h)
+- [x] add Basis contextualizer/ID system
+    - [ ] fine-tune (3h)
+- [ ] finish up evals framework + scale up evals (1-2h)
 - [ ] run evals (literally 1 command)
 - [ ] based on evals and stats, generate plots (idk)
 - [ ] writeup
