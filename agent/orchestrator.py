@@ -13,11 +13,26 @@ reuse the same `OrchestratorAgent` implementation.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
-from typing import Callable, Dict, Iterable, Mapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 
+# Add evals directory to path so 'are' module resolves correctly
+# This allows ARE code (which uses 'from are.simulation...') to work
+# when running from the root directory
+_evals_dir = Path(__file__).resolve().parent.parent / "evals"
+if str(_evals_dir) not in sys.path:
+    sys.path.insert(0, str(_evals_dir))
+
+from agent.context_cortex import ContextCortex
+from agent.cortex_integration import (
+    build_history_with_cortex,
+    make_cortex_ingestion_hook,
+    make_cortex_maintenance_llm,
+)
 from evals.are.simulation.agents.default_agent.base_agent import (
     BaseAgent as MetaBaseAgent,
+    ConditionalStep,
 )
 from evals.are.simulation.agents.default_agent.tools.json_action_executor import (
     JsonActionExecutor,
@@ -133,6 +148,18 @@ class OrchestratorAgent(MetaBaseAgent):
     system_prompt:
         Optional override for the orchestrator system prompt. If omitted, a default
         multi-tool orchestration prompt is used.
+    context_cortex:
+        Optional ContextCortex instance for shared episodic memory.
+    agent_id:
+        Unique identifier for this agent in the cortex (default: "orchestrator").
+    agent_mask:
+        Bitmask for access control in cortex (default: 0b11).
+    cortex_maintenance_llm_api_key:
+        Optional API key for gemini-2.0-flash to use for cortex maintenance.
+        If None, cortex ingestion will use simple fallback summaries.
+    other_agents:
+        List of other agents in the system (for cortex maintenance LLM context).
+        Each dict should have 'agent_id' and 'mask' keys.
     """
 
     def __init__(
@@ -140,24 +167,89 @@ class OrchestratorAgent(MetaBaseAgent):
         llm_engine: Callable,
         subagent_tools: Optional[Mapping[str, Tool]] = None,
         system_prompt: Optional[str] = None,
+        context_cortex: Optional[ContextCortex] = None,
+        agent_id: str = "orchestrator",
+        agent_mask: int = 0b11,
+        cortex_maintenance_llm_api_key: Optional[str] = None,
+        other_agents: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         tools: Dict[str, Tool] = {"final_answer": FinalAnswerTool()}
         if subagent_tools:
             tools.update(dict(subagent_tools))
 
+        # Convert SystemPrompt to string for BaseAgent compatibility
+        prompt_str = system_prompt or DEFAULT_ORCHESTRATOR_PROMPT
         system_prompts = {
-            "system_prompt": SystemPrompt(
-                prompt=system_prompt or DEFAULT_ORCHESTRATOR_PROMPT
-            )
+            "system_prompt": prompt_str
         }
 
         action_executor = JsonActionExecutor(tools=tools)
+
+        # Store cortex-related state
+        self.context_cortex = context_cortex
+        self.cortex_agent_id = agent_id
+        self._last_cortex_ingestion_index = -1
+
+        # Build conditional post-steps (for cortex ingestion)
+        conditional_post_steps = []
+        if context_cortex is not None:
+            # Register agent in cortex
+            context_cortex.register_agent(agent_id, agent_mask)
+
+            # Create maintenance LLM if API key provided
+            maintenance_llm = None
+            if cortex_maintenance_llm_api_key:
+                agent_context = {
+                    "agent_id": agent_id,
+                    "agent_mask": agent_mask,
+                    "other_agents": other_agents or [],
+                }
+                maintenance_llm = make_cortex_maintenance_llm(
+                    cortex_maintenance_llm_api_key, agent_context
+                )
+
+            # Create ingestion hook
+            ingestion_hook = make_cortex_ingestion_hook(
+                cortex=context_cortex,
+                agent_id=agent_id,
+                agent_mask=agent_mask,
+                maintenance_llm=maintenance_llm,
+                other_agents=other_agents or [],
+            )
+
+            conditional_post_steps.append(
+                ConditionalStep(
+                    condition=None,  # Always run
+                    function=ingestion_hook,
+                    name="cortex_ingestion",
+                )
+            )
 
         super().__init__(
             llm_engine=llm_engine,
             system_prompts=system_prompts,
             tools=tools,
             action_executor=action_executor,
+            conditional_post_steps=conditional_post_steps if conditional_post_steps else None,
+        )
+
+    def build_history_from_logs(
+        self, exclude_log_types: List[str] = []
+    ) -> List[Dict[str, Any]]:
+        """
+        Build history from logs, with cortex integration if enabled.
+
+        If context_cortex is set, this uses build_history_with_cortex() to merge
+        relevant episodes from other agents. Otherwise, falls back to parent method.
+        """
+        if self.context_cortex is None:
+            return super().build_history_from_logs(exclude_log_types=exclude_log_types)
+
+        return build_history_with_cortex(
+            agent=self,
+            cortex=self.context_cortex,
+            agent_id=self.cortex_agent_id,
+            exclude_log_types=exclude_log_types,
         )
 
 
@@ -165,6 +257,11 @@ def create_orchestrator(
     llm_engine: Callable,
     subagent_tools: Iterable[Tool] | Mapping[str, Tool],
     system_prompt: Optional[str] = None,
+    context_cortex: Optional[ContextCortex] = None,
+    agent_id: str = "orchestrator",
+    agent_mask: int = 0b11,
+    cortex_maintenance_llm_api_key: Optional[str] = None,
+    other_agents: Optional[List[Dict[str, Any]]] = None,
 ) -> OrchestratorAgent:
     """
     Convenience builder for a fully-wired OrchestratorAgent.
@@ -182,6 +279,11 @@ def create_orchestrator(
         llm_engine=llm_engine,
         subagent_tools=tool_map,
         system_prompt=system_prompt,
+        context_cortex=context_cortex,
+        agent_id=agent_id,
+        agent_mask=agent_mask,
+        cortex_maintenance_llm_api_key=cortex_maintenance_llm_api_key,
+        other_agents=other_agents,
     )
 
 
