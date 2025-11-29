@@ -20,7 +20,7 @@ reason about and propose masks, typically as binary strings like "1", "11",
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -140,26 +140,50 @@ class ContextCortex:
         self._agents[agent_id] = identity
         return identity
 
-    def update_agent_mask(self, agent_id: str, new_mask: int) -> Optional[AgentIdentity]:
+    def update_agent_mask(self, agent_id: str, mask_str: str) -> Optional[AgentIdentity]:
         """
         Update an agent's mask. Returns the updated identity, or None if missing.
         """
         identity = self._agents.get(agent_id)
         if identity is None:
             return None
-        identity.mask = new_mask
+        
+        identity.mask = self.parse_mask(mask_str)
         return identity
-
-    def set_agent_mask_from_str(self, agent_id: str, mask_str: str) -> Optional[AgentIdentity]:
-        """
-        Convenience helper to update an agent's mask from a string representation.
-        Intended to be called with mask proposals from an LLM.
-        """
-        new_mask = self.parse_mask(mask_str)
-        return self.update_agent_mask(agent_id, new_mask)
 
     def get_agent(self, agent_id: str) -> Optional[AgentIdentity]:
         return self._agents.get(agent_id)
+
+    
+    # ------------------------------------------------------------------
+    # LLM operations
+    # ------------------------------------------------------------------
+    # raw ingest episode function
+    def ingest_episode(
+        self,
+        episode_id: str,
+        source_agent_id: str,
+        raw_trace: Any,
+        trace_summary: str,
+        mask_str: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> ContextEpisode:
+        """
+        Ingest an episode into the cortex.
+
+        This is the primary write API used by `CortexAgent`'s ingest tool. The LLM
+        provides only `trace_summary` and `mask_str`; all other fields come from
+        the surrounding agent logic.
+        """
+        episode = self.add_episode(
+            episode_id=episode_id,
+            source_agent_id=source_agent_id,
+            access_mask=self.parse_mask(mask_str),
+            raw_trace=raw_trace,
+            summary=trace_summary,
+            metadata=metadata,
+        )
+        return episode
 
     # ------------------------------------------------------------------
     # Episode storage
@@ -171,6 +195,7 @@ class ContextCortex:
         source_agent_id: str,
         access_mask: int,
         raw_trace: Any,
+        summary: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> ContextEpisode:
         """
@@ -181,84 +206,10 @@ class ContextCortex:
             source_agent_id=source_agent_id,
             access_mask=access_mask,
             raw_trace=raw_trace,
+            summary=summary,
             metadata=metadata or {},
         )
         self._episodes[episode_id] = episode
-        return episode
-
-    def set_episode_mask_from_str(self, episode_id: str, mask_str: str) -> Optional[ContextEpisode]:
-        """
-        Update an episode's access_mask based on a mask string.
-        Intended to be called with mask proposals from an LLM.
-        """
-        episode = self._episodes.get(episode_id)
-        if episode is None:
-            return None
-        episode.access_mask = self.parse_mask(mask_str)
-        return episode
-
-    # ------------------------------------------------------------------
-    # LLM curation hooks
-    # ------------------------------------------------------------------
-
-    def ingest_with_llm(
-        self,
-        episode_id: str,
-        llm_summarizer: Callable[[ContextEpisode], str],
-    ) -> Optional[ContextEpisode]:
-        """
-        Run a small LLM over an existing episode to curate/summarize it.
-
-        llm_summarizer receives the full ContextEpisode and should return a
-        short summary string. The cortex does not import any model clients
-        directly; it only calls this function.
-        """
-        episode = self._episodes.get(episode_id)
-        if episode is None:
-            return None
-        episode.summary = llm_summarizer(episode)
-        return episode
-
-    def after_turn_ingest(
-        self,
-        *,
-        agent_id: str,
-        turn_trace: Any,
-        initial_mask: int,
-        make_episode_id: Callable[[], str],
-        llm_summarizer: Optional[Callable[[ContextEpisode], str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> ContextEpisode:
-        """
-        Convenience function to be called after an agent turn.
-
-        - Creates a ContextEpisode containing the full turn_trace.
-        - Sets its access_mask to initial_mask.
-        - Optionally runs a small LLM summarizer to populate `summary`.
-
-        Example of small-LLM usage pattern (pseudocode):
-
-        >>> def summarizer(ep: ContextEpisode) -> str:
-        ...     prompt = f\"\"\"You are a memory curator. Here is a trace:
-        ... {ep.raw_trace}
-        ...
-        ... The agent's mask is {ContextCortex.format_mask(
-        ...     cortex.get_agent(ep.source_agent_id).mask
-        ... ) if cortex.get_agent(ep.source_agent_id) else 'unknown'}.
-        ...
-        ... Summarize this trace in at most 3 sentences.\"\"\"
-        ...     return call_small_llm(prompt)
-        """
-        episode_id = make_episode_id()
-        episode = self.add_episode(
-            episode_id=episode_id,
-            source_agent_id=agent_id,
-            access_mask=initial_mask,
-            raw_trace=turn_trace,
-            metadata=metadata,
-        )
-        if llm_summarizer is not None:
-            episode.summary = llm_summarizer(episode)
         return episode
 
     # ------------------------------------------------------------------
@@ -305,121 +256,5 @@ class ContextCortex:
                     )
         return accessible
 
-
-# ---------------------------------------------------------------------------
-# Optional helper: cortex \"tools\" and simple integration hook
-# ---------------------------------------------------------------------------
-
-def cortex_add_episode(
-    cortex: ContextCortex,
-    *,
-    source_agent_id: str,
-    raw_mask_str: str,
-    raw_trace_snippet: Any,
-    make_episode_id: Callable[[], str],
-    metadata: Optional[Dict[str, Any]] = None,
-) -> str:
-    """
-    Tool-style helper to add an episode given a mask string.
-
-    Intended to be exposed to a maintenance agent, which:
-    - Proposes raw_mask_str (e.g. \"1\", \"11\", \"101\").
-    - Provides a compact raw_trace_snippet (e.g. recent messages or logs).
-    """
-    access_mask = cortex.parse_mask(raw_mask_str)
-    episode_id = make_episode_id()
-    cortex.add_episode(
-        episode_id=episode_id,
-        source_agent_id=source_agent_id,
-        access_mask=access_mask,
-        raw_trace=raw_trace_snippet,
-        metadata=metadata,
-    )
-    return episode_id
-
-
-def cortex_update_episode_mask(
-    cortex: ContextCortex,
-    *,
-    episode_id: str,
-    raw_mask_str: str,
-) -> bool:
-    """
-    Tool-style helper to update an episode's access mask from a string.
-    """
-    episode = cortex.set_episode_mask_from_str(episode_id, raw_mask_str)
-    return episode is not None
-
-
-def cortex_update_agent_mask(
-    cortex: ContextCortex,
-    *,
-    agent_id: str,
-    raw_mask_str: str,
-) -> bool:
-    """
-    Tool-style helper to update an agent's mask from a string.
-    """
-    identity = cortex.set_agent_mask_from_str(agent_id, raw_mask_str)
-    return identity is not None
-
-
-def cortex_list_accessible_episodes(
-    cortex: ContextCortex,
-    *,
-    agent_id: str,
-) -> List[Dict[str, Any]]:
-    """
-    Tool-style helper to list episodes visible to an agent.
-
-    Returns a lightweight list of dicts suitable for LLM consumption:
-    - episode_id
-    - mask_str
-    - summary
-    """
-    out: List[Dict[str, Any]] = []
-    episodes = cortex.get_episodes_for_agent(agent_id, include_raw=False)
-    for ep in episodes:
-        out.append(
-            {
-                "episode_id": ep.episode_id,
-                "mask": ContextCortex.format_mask(ep.access_mask),
-                "summary": ep.summary,
-            }
-        )
-    return out
-
-
-def make_cortex_after_step_hook(
-    cortex: ContextCortex,
-    *,
-    agent_id: str,
-    default_mask: int,
-    make_episode_id: Callable[[], str],
-    llm_summarizer: Optional[Callable[[ContextEpisode], str]] = None,
-) -> Callable[[Any, Optional[Dict[str, Any]]], ContextEpisode]:
-    """
-    Create a small hook that can be called after each agent step/turn.
-
-    The returned function has signature:
-        hook(turn_trace, metadata=None) -> ContextEpisode
-
-    and internally calls `cortex.after_turn_ingest(...)`.
-
-    This is designed to be easy to plug into existing event loops or logging
-    callbacks without modifying core agent logic.
-    """
-
-    def hook(turn_trace: Any, metadata: Optional[Dict[str, Any]] = None) -> ContextEpisode:
-        return cortex.after_turn_ingest(
-            agent_id=agent_id,
-            turn_trace=turn_trace,
-            initial_mask=default_mask,
-            make_episode_id=make_episode_id,
-            llm_summarizer=llm_summarizer,
-            metadata=metadata,
-        )
-
-    return hook
-
-
+# easy singleton for tool call
+cortex = ContextCortex()

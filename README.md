@@ -28,9 +28,9 @@ JACK -- LIT REVIEW:
 # 28 Nov
 NEXT:
 - [x] implement base multi-agent system (1h)
-- [x] add Basis contextualizer/ID system
+- [ ] add Basis contextualizer/ID system
     - [ ] fine-tune (3h)
 - [ ] finish up evals framework + scale up evals (1-2h)
 - [ ] run evals (literally 1 command)
 - [ ] based on evals and stats, generate plots (idk)
-- [ ] writeup
+- [-] writeup
