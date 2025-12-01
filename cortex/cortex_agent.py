@@ -213,7 +213,7 @@ Use these agent masks when deciding which agents should see this episode. Match 
 
 """
         
-        task = f"""You are given an agent trace to ingest into the shared Cortex memory.
+        task = f"""You are given an agent trace + the 4 most recent contextual logs to ingest into the shared Cortex memory.
 
 [TRACE]
 {trace_repr}
@@ -221,11 +221,11 @@ Use these agent masks when deciding which agents should see this episode. Match 
 {agents_info}
 
 Your task:
-1. Read and understand the trace.
-2. Produce a concise, high-signal summary (2–5 sentences).
+1. Read and understand the trace and context.
+2. Produce a concise, high-signal summary (2–5 sentences) of ONLY the last trace.
 3. Decide on an appropriate access-control mask string `mask_str` (binary like "1", "10", "11") indicating which agent groups should see this episode.
 4. Call the `ingest_episode` tool EXACTLY ONCE with:
-   - trace_summary: your summary
+   - trace_summary: your summary of ONLY the last trace
    - mask_str: the mask string you chose
 
 After successfully calling `ingest_episode`, the task is complete. Do not provide any additional output or confirmation.

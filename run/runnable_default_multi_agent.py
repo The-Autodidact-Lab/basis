@@ -131,7 +131,7 @@ class RunnableARESimulationDefaultMultiAgent(ARESimulationAgent):
         # Pass through scenario_id so baseline app agents (e.g., CabApp) can
         # adopt the same confounder-specific prompts as in the Basis run.
         scenario_id = getattr(scenario, "scenario_id", None)
-        self.default_multi_agent = DefaultMultiAgent(apps=apps, **kwargs)
+        self.default_multi_agent = DefaultMultiAgent(apps=apps, scenario_id=scenario_id, **kwargs)
         
         old_react_agent = self.react_agent
         self.react_agent = self.default_multi_agent.orchestrator

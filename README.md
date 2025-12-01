@@ -33,13 +33,13 @@ NEXT:
     - [x] create a demo runner agent system that wires everything together
     - [x] run a demo script to check that everything is ingested correctly
 - [x] wire into existing ARE system
-- [ ] create 2-3 specific case studies and scenarios that multi-agent systems tend to fail at
-- [ ] implement baseline multi-agent system (ref `run/`, should be the same thing just subclassing BaseAgent instead of BaseCortex and without any weird termination steps)
+- [x] create 2-3 specific case studies and scenarios that multi-agent systems tend to fail at
+- [x] implement baseline multi-agent system (ref `run/`, should be the same thing just subclassing BaseAgent instead of BaseCortex and without any weird termination steps)
 - [ ] run base multi-agent system vs. mine and compare
 - [-] writeup
-    - [x] abstract
-    - [x] introduction
-    - [x] problem statement
+    - [-] abstract
+    - [-] introduction
+    - [-] problem statement
     - [-] implementation details
     - [ ] results
     - [ ] discussion
