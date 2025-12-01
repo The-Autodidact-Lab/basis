@@ -98,7 +98,10 @@ class RunnableARESimulationDefaultMultiAgent(ARESimulationAgent):
             "\n\nYou are an orchestrator agent. Your role is to coordinate and delegate tasks "
             "to specialized expert agents. You have access to expert agents for each application. "
             "Use the expert agent tools to delegate tasks when appropriate. "
-            "The expert agents will handle the detailed work with their respective applications."
+            "The expert agents will handle the detailed work with their respective applications.\n\n"
+            "In this baseline configuration you do NOT see tool traces directly, so you must infer what "
+            "subagents did from their natural-language replies. You cannot inspect exact tool names or "
+            "arguments. Behave as a careful but trace-blind coordinator.\n"
         )
         
         if hasattr(self.react_agent, 'init_system_prompts'):
@@ -114,17 +117,20 @@ class RunnableARESimulationDefaultMultiAgent(ARESimulationAgent):
         Exact same as runnable_multi_agent.py, but without a cortex.
         """
         apps = scenario.apps if scenario.apps else []
-        
+
         kwargs = {
             "llm_engine": self.llm_engine,
             "max_iterations": self.max_iterations,
             "time_manager": self.time_manager,
             "log_callback": self.react_agent.log_callback,
         }
-        
+
         if hasattr(self.react_agent, 'init_system_prompts') and self.react_agent.init_system_prompts:
             kwargs["system_prompts"] = self.react_agent.init_system_prompts
-        
+
+        # Pass through scenario_id so baseline app agents (e.g., CabApp) can
+        # adopt the same confounder-specific prompts as in the Basis run.
+        scenario_id = getattr(scenario, "scenario_id", None)
         self.default_multi_agent = DefaultMultiAgent(apps=apps, **kwargs)
         
         old_react_agent = self.react_agent

@@ -245,9 +245,10 @@ How bitwise masks work:
 - An agent can access an episode if their group mask shares at least one bit with the episode mask
 
 Examples:
-- Trace from a single agent group → use mask matching that group (e.g., "1" for group 1, "10" for group 2)
-- Trace showing collaboration between two groups → use combined mask (e.g., "11" for groups 1 and 2)
-- Trace relevant to all groups → use mask with all bits set (e.g., "111" for three groups)
+- Trace from an orchestrator delegating a task to a subagent should be visible to the orchestrator AND the subagent.
+- Trace from a subagent moving the overall task forward with a tool call should be visible to the subagent AND the orchestrator.
+- Trace from a subagent using a tool not directly in response to the task given should not be visible to the orchestrator.
+- Trace from the orchestrator reasoning about the task unrelated to delegation should not be visible to the subagents.
 
 Choose the mask based on which agent groups would benefit from seeing this context. You should be MINIMALIST in your choice of mask; that is, only agents that NEED this information to continue should see the episode.
 === END ACCESS MASK GUIDELINES ===

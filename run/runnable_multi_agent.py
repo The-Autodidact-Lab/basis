@@ -130,7 +130,29 @@ class RunnableARESimulationMultiAgent(ARESimulationAgent):
             "\n\nYou are an orchestrator agent. Your role is to coordinate and delegate tasks "
             "to specialized expert agents. You have access to expert agents for each application. "
             "Use the expert agent tools to delegate tasks when appropriate. "
-            "The expert agents will handle the detailed work with their respective applications."
+            "The expert agents will handle the detailed work with their respective applications.\n\n"
+            "You have privileged access to traces and tool calls via the shared Cortex. When solving a task:\n"
+            "- Treat subagent natural-language replies as potentially incomplete; prefer the ground truth in tool traces.\n"
+            "- After a subagent acts, inspect the sequence of tool calls (including tool names and arguments) and compare "
+            "it against the user's request.\n"
+            "- If you detect misalignment, REDELEGATE with more explicit instructions, naming tools and arguments.\n\n"
+            "Cab-specific guidance (applies whenever CabApp is involved):\n"
+            "- For 'cheapest ride' requests (e.g., Downtown -> Airport):\n"
+            "  * Check whether CabApp.list_rides was called with the correct start_location/end_location.\n"
+            "  * If not, and/or if CabApp.order_ride used a non-cheapest service_type (e.g., 'Premium' instead of "
+            "'Default'), issue a follow-up delegation that:\n"
+            "    - Requires calling list_rides(start_location=..., end_location=...) first, and\n"
+            "    - Then requires booking the cheapest service by calling order_ride with the appropriate "
+            "service_type and locations.\n"
+            "- For requests that explicitly say 'do not book yet' or 'just give options':\n"
+            "  * Treat any CabApp.order_ride call as misbehavior.\n"
+            "  * Consider calling CabApp.user_cancel_ride to undo an unwanted booking, and then redelegate with "
+            "explicit instructions to use only quotation tools (list_rides / get_quotation) until you explicitly "
+            "authorize booking.\n"
+            "- For booking tasks involving CabApp, always cross-check the user's requested origin/destination "
+            "against the arguments used in Cab tools. If start_location/end_location are swapped or stale relative "
+            "to the user request, issue a corrective delegation that specifies the correct named arguments and "
+            "requires a new tool call.\n"
         )
         
         if hasattr(self.react_agent, 'init_system_prompts'):
@@ -148,9 +170,10 @@ class RunnableARESimulationMultiAgent(ARESimulationAgent):
         """
         # Get apps from scenario
         apps = scenario.apps if scenario.apps else []
-        
-        # Create MultiAgent with scenario apps
+
+        # Create MultiAgent with scenario apps.
         # Pass kwargs from our config to MultiAgent, including system_prompts from placeholder
+        # and the scenario_id so that app agents can adopt scenario-specific prompts.
         # Access log_callback from react_agent (parent stores it there, see line 76 of are_simulation_main.py)
         kwargs = {
             "llm_engine": self.llm_engine,
@@ -162,8 +185,10 @@ class RunnableARESimulationMultiAgent(ARESimulationAgent):
         # Extract system_prompts from placeholder base_agent to pass to orchestrator
         if hasattr(self.react_agent, 'init_system_prompts') and self.react_agent.init_system_prompts:
             kwargs["system_prompts"] = self.react_agent.init_system_prompts
-        
-        self.multi_agent = MultiAgent(apps=apps, **kwargs)
+
+        # Provide scenario_id so subagents (e.g., CabApp) can adopt confounder-specific behavior.
+        scenario_id = getattr(scenario, "scenario_id", None)
+        self.multi_agent = MultiAgent(apps=apps, scenario_id=scenario_id, **kwargs)
         
         # Replace react_agent with orchestrator
         # Store old react_agent reference in case we need it
