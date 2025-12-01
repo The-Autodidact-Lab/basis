@@ -33,15 +33,14 @@ NEXT:
     - [x] create a demo runner agent system that wires everything together
     - [x] run a demo script to check that everything is ingested correctly
 - [x] wire into existing ARE system
-F
-    - [ ] run existing evals (GAIA2) (literally 1 command)
-    - [ ] fine-tune based on mini-eval set
-- [ ] based on evals and stats, generate plots (idk)
+- [ ] create 2-3 specific case studies and scenarios that multi-agent systems tend to fail at
+- [ ] implement baseline multi-agent system (ref `run/`, should be the same thing just subclassing BaseAgent instead of BaseCortex and without any weird termination steps)
+- [ ] run base multi-agent system vs. mine and compare
 - [-] writeup
     - [x] abstract
     - [x] introduction
     - [x] problem statement
-    - [ ] implementation details
+    - [-] implementation details
     - [ ] results
     - [ ] discussion
     - [ ] conclusion
