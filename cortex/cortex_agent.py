@@ -244,13 +244,16 @@ How bitwise masks work:
 - Setting multiple bits makes the episode visible to multiple groups
 - An agent can access an episode if their group mask shares at least one bit with the episode mask
 
-Examples:
+Examples: (REFERENCE, do NOT copy)
 - Trace from an orchestrator delegating a task to a subagent should be visible to the orchestrator AND the subagent.
-- Trace from a subagent moving the overall task forward with a tool call should be visible to the subagent AND the orchestrator.
+- Trace from a subagent moving the overall task forward with a tool call, with OR without an implied deciision, should be visible to the subagent AND the orchestrator.
+- Trace from a subagent that makes a tool call that has ANY implicit decision or action should be visible to the subagent AND the orchestrator.
 - Trace from a subagent using a tool not directly in response to the task given should not be visible to the orchestrator.
+- Trace from a subagent using a tool that gets information relevant to the task at hand should be visible to the orchestrator AND relevant subagents.
 - Trace from the orchestrator reasoning about the task unrelated to delegation should not be visible to the subagents.
+- Trace from a subagent with real-world consequences should be visible to the orchestrator AND relevant subagents.
 
-Choose the mask based on which agent groups would benefit from seeing this context. You should be MINIMALIST in your choice of mask; that is, only agents that NEED this information to continue should see the episode.
+Choose the mask based on which agent groups would benefit from seeing this context. You should be MINIMALIST in your choice of mask; that is, only agents that NEED this information to continue or to validate the agent's decision should see the episode.
 === END ACCESS MASK GUIDELINES ===
 """
 

@@ -17,6 +17,7 @@ dependencies = [
     "markdownify>=1.2.2",
     "pandas>=2.3.3",
     "pdfminer-six>=20231228",
+    "strawberry-graphql>=0.287.0",
 ]
 
 [tool.pytest.ini_options]

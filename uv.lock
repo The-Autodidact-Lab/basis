@@ -251,6 +251,7 @@ dependencies = [
     { name = "pdfminer-six" },
     { name = "pillow" },
     { name = "pytest" },
+    { name = "strawberry-graphql" },
     { name = "termcolor" },
 ]
 
@@ -267,6 +268,7 @@ requires-dist = [
     { name = "pdfminer-six", specifier = ">=20231228" },
     { name = "pillow", specifier = ">=11.1.0" },
     { name = "pytest", specifier = ">=9.0.1" },
+    { name = "strawberry-graphql", specifier = ">=0.287.0" },
     { name = "termcolor", specifier = ">=3.2.0" },
 ]
 
@@ -442,6 +444,15 @@ wheels = [
 ]
 
 [[package]]
+name = "graphql-core"
+version = "3.2.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/9b/037a640a2983b09aed4a823f9cf1729e6d780b0671f854efa4727a7affbe/graphql_core-3.2.7.tar.gz", hash = "sha256:27b6904bdd3b43f2a0556dad5d579bdfdeab1f38e8e8788e555bdcb586a6f62c", size = 513484, upload-time = "2025-11-01T22:30:40.436Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/14/933037032608787fb92e365883ad6a741c235e0ff992865ec5d904a38f1e/graphql_core-3.2.7-py3-none-any.whl", hash = "sha256:17fc8f3ca4a42913d8e24d9ac9f08deddf0a0b2483076575757f6c412ead2ec0", size = 207262, upload-time = "2025-11-01T22:30:38.912Z" },
+]
+
+[[package]]
 name = "grpcio"
 version = "1.76.0"
 source = { registry = "https://pypi.org/simple" }
@@ -532,6 +543,18 @@ version = "1.0.4"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/97/9c/1646ca469bc2dc299ac393c8d31136c6c22a35ca1e373fa462ac01100d37/inputimeout-1.0.4-py3-none-any.whl", hash = "sha256:f4e23d27753cfc25268eefc8d52a3edc46280ad831d226617c51882423475a43", size = 4639, upload-time = "2018-03-02T14:28:06.903Z" },
+]
+
+[[package]]
+name = "lia-web"
+version = "0.2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/4e/847404ca9d36e3f5468c9e460aed565a02cbca0fdf81247da9f87fabc1b8/lia_web-0.2.3.tar.gz", hash = "sha256:ccc9d24cdc200806ea96a20b22fb68f4759e6becdb901bd36024df7921e848d7", size = 156761, upload-time = "2025-08-11T10:23:21.003Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/f2/c68a97c727c795119f1056ad2b7e716c23f26f004292517c435accf90b5c/lia_web-0.2.3-py3-none-any.whl", hash = "sha256:237c779c943cd4341527fc0adfcc3d8068f992ee051f4ef059b8474ee087f641", size = 13965, upload-time = "2025-08-11T10:23:20.215Z" },
 ]
 
 [[package]]
@@ -1018,6 +1041,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6d/e6/21ccce3262dd4889aa3332e5a119a3491a95e8f60939870a3a035aabac0d/soupsieve-2.8.tar.gz", hash = "sha256:e2dd4a40a628cb5f28f6d4b0db8800b8f581b65bb380b97de22ba5ca8d72572f", size = 103472, upload-time = "2025-08-27T15:39:51.78Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/14/a0/bb38d3b76b8cae341dad93a2dd83ab7462e6dbcdd84d43f54ee60a8dc167/soupsieve-2.8-py3-none-any.whl", hash = "sha256:0cc76456a30e20f5d7f2e14a98a4ae2ee4e5abdc7c5ea0aafe795f344bc7984c", size = 36679, upload-time = "2025-08-27T15:39:50.179Z" },
+]
+
+[[package]]
+name = "strawberry-graphql"
+version = "0.287.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "graphql-core" },
+    { name = "lia-web" },
+    { name = "packaging" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0b/66/dfdb0f9b1f58123e1a00597931d46cc25e4d310f44dbb1e24cffa905ebc2/strawberry_graphql-0.287.0.tar.gz", hash = "sha256:4da748f82684f3dc914fc9ed88184e715903d7fa06248f8f702bbbab55f7ed36", size = 211808, upload-time = "2025-11-22T13:00:45.802Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/21/954ed4a43d8ddafcc022b4f212937606249d9ab7c47e77988ecf949a46c2/strawberry_graphql-0.287.0-py3-none-any.whl", hash = "sha256:d85cc90101d322a641fe8f4adb8f3c4a1aa5dddb61ba1a4bbb7bf42aa4dbad8c", size = 309017, upload-time = "2025-11-22T13:00:44.005Z" },
 ]
 
 [[package]]
