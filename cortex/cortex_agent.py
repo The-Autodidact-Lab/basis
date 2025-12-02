@@ -222,7 +222,7 @@ Use these agent masks when deciding which agents should see this episode. Match 
 
 Your task:
 1. Read and understand the trace and context.
-2. Produce a concise, high-signal summary (2–5 sentences) of ONLY the last trace.
+2. Produce a concise, high-signal summary (2–5 sentences) of ONLY the last trace. When summarising, make sure to include any specific figures or information clearly that is immediately relevant to the task at hand.
 3. Decide on an appropriate access-control mask string `mask_str` (binary like "1", "10", "11") indicating which agent groups should see this episode.
 4. Call the `ingest_episode` tool EXACTLY ONCE with:
    - trace_summary: your summary of ONLY the last trace
