@@ -204,7 +204,7 @@ Examples:
         "--hf-config",
         "mini",  # gaia2-mini subset
         "--agent",
-        "multi_agent",  # Use multi_agent agent
+        "default_multi_agent",  # Use multi_agent agent
         # "--a2a_app_prop",
         # "1.0",  # Agent2Agent phase: 100% of apps become agents (multi-agent collaboration)
         "--model",

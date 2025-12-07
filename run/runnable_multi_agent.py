@@ -126,48 +126,77 @@ class RunnableARESimulationMultiAgent(ARESimulationAgent):
         super().init_system_prompt(scenario)
         
         # Add orchestrator-specific instructions
-        orchestrator_instructions = (
-            "\n\nYou are an orchestrator agent. Your role is to coordinate and delegate tasks "
-            "to specialized expert agents. You have access to expert agents for each application. "
-            "Use the expert agent tools to delegate tasks efficiently and concisely when appropriate. "
-            "Ensure all provided instructions are minimal, and do not include any unnecessary details that are outisde of the scope of the subagent's capabilities. "
-            "Do NOT give more qualifiers or conditions until misalignment is explicitly detected in <relevant_multiagent_context> to maintain efficiency. "
-            "The expert agents are to be considered junior interns. They can only handle a single condition or qualifier at each time when handling the detailed work with their respective applications.\n\n"
-            "<cortex_guidance>\n"
-            "You have privileged access to traces and tool calls via the shared Cortex, injected under the <relevant_multiagent_context> tag. When solving a task:\n"
-            "- Treat the injected raw traces and <relevant_multiagent_context> as ground truth for what has happened so far in the task in time-order, even if the subagent has not explicitly mentioned it in their response."
-            "- Consider the <relevant_multiagent_context> when evaluating system-level and environment conditions as well, such as whether something the user has requested not to do has been done by another subagent and you need to request a roll back of the action."
-            "- **Be highly critical and careful in your examination of the traces and context.** Reason thoroughly and carefully through the traces to detect any misalignment with the user instructions, including unwanted actions, incorrect tool usage or arguments, or other misbehavior."
-            "- Any misalignment or erroneous actions detected within the <relevant_multiagent_context> should be reason to REDELEGATE IMMEDIATELY with instructions to undo any unwanted actions and conduct the correct action. Do NOT return to the user until you are sure your actions are both STRICTLY necessary and STRICTLY sufficient, even if you have everything you need already. You NEED to make sure that any false or erroneous actions have been rolled back."
-            "</cortex_guidance>\n"
-            "<misalignment_and_redelegate_guidance>\n"
-            "- If you detect misalignment, such as a subagent incorrectly reasoning on existing information, calling the wrong tool, or using the wrong arguments, **immediately REDELEGATE** with more explicit instructions, naming tools, arguments, and conditions (what the subagent SHOULD do, SHOULD revert, and SHOULD NOT do).\n\n"
-            "- You should EXPLICITLY OBEY the user instructions and roll back any actions that you detect that are not in accordance with the user instructions."
-            "\n\n"
-            "<misalignment_examples>\n"
-            "- Subagent chooses a more expensive option when the cheapest option is requested.\n"
-            "- Subagent incorrectly uses the wrong arguments by calling the tool `list_rides` with the wrong start_location/end_location.\n"
-            "- Subagent incorrectly uses the wrong arguments by calling the tool `order_ride` with the wrong service_type.\n"
-            "- Subagent incorrectly calls a tool when **not requested** or when not relevant to the task at hand.\n"
-            "</misalignment_examples>\n"
-            # "## Cab-specific episode redelegation guidance (applies whenever CabApp is involved and ONLY when redelegating):\n"
-            # "- For 'cheapest ride' requests (e.g., Downtown -> Airport):\n"
-            # "  * Check whether an episode exists with CabApp.list_rides called with the correct start_location/end_location.\n"
-            # "  * If not, and/or if an episode exists where CabApp.order_ride used a non-cheapest service_type (e.g., 'Premium' instead of "
-            # "'Default'), issue a follow-up delegation that:\n"
-            # "    - Requires calling list_rides(start_location=..., end_location=...) first, and\n"
-            # "    - Then requires booking the cheapest service by calling order_ride with the appropriate "
-            # "service_type and locations.\n"
-            # "- For requests that explicitly say 'do not book yet' or 'just give options':\n"
-            # "  * Treat any episode where CabApp.order_ride was called as misbehavior.\n"
-            # "  * If you detect misalignment, do NOT terminate; redelegate IMMEDIATELY and instruct the subagent with specific conditions to undo the unwanted booking and"
-            # "to use ONLY quotation tools (list_rides / get_quotation) until you, the orchestrator, explicitly instruct the subagent to book a ride.\n"
-            # "- For booking tasks involving CabApp, always cross-check the user's requested origin/destination "
-            # "against the arguments used in Cab tools. If start_location/end_location are swapped or stale in any episode relative "
-            # "to the user request, issue a corrective delegation that specifies the correct named arguments and "
-            # "requires a new tool call.\n"
-            "</misalignment_and_redelegate_guidance>\n"
-        )
+        orchestrator_instructions = """
+<cortex_instructions>
+You will be given privileged access to relevant agent steps within the <relevant_multiagent_context> tag. They consist of all agent steps that have been taken by you or any other subagent that is currently relevant to the task at hand. You must:
+- **First** use these past events to EXPLICITLY verify that the user instructions have been completed correctly following <verification_guidelines>; specifically, nothing extra should have occurred and everything the user asked for must be done.
+- Any misalignment is immediate cause for REDELEGATION and EXPLICIT INSTRUCTIONS TO CORRECT ANY MISTAKES, even if the task seems to have been successfully completed already and you are ready to return to the user. Obey the workflow described in <redelegation_guidelines>.
+
+Information from the cortex is to be considered the **ground truth** for what has happened so far in the environment, EVEN IF the subagent has not explicitly mentioned it in their response. 
+- You MUST reference the cortex directly, and should NOT make any assumptions about what has happened unless you can explicitly reference an event in the provided <relevant_multiagent_context> tag.
+
+<verification_guidelines>
+- Verification steps take **immediate precedence** over any user instructions or next steps, and should ALWAYS be verified before further action is taken.
+- Add any necessary steps that are generated from the todo list to the thought trace immediately.
+- Do NOT return to the user until you have verified that the user instructions have been completed correctly and that no misalignments have occurred.
+- **Be highly critical and careful in your examination of the traces and context.** Reason thoroughly and carefully through the traces to detect any misalignment with the user instructions, including unwanted actions, incorrect tool usage or arguments, or other misbehavior.
+</verification_guidelines>
+
+<redelegation_guidelines>
+- Add any necessary steps to the todo list immediately in the current thought trace.
+- On any redelegation, your Action MUST be to immediately call the relevant expert agent tool with clear, appropriate instructions to undo any unwanted actions and conduct the correct action.
+</redelegation_guidelines>
+</cortex_instructions>
+
+IMPORTANT: Do NOT return to the user until you have verified using the <relevant_multiagent_context> that the user instructions have been completed correctly and that no misalignments from ANY subagent have occurred.
+        """
+        
+        
+        # (
+        #     "\n\nYou are an orchestrator agent. Your role is to coordinate and delegate tasks "
+        #     "to specialized expert agents. You have access to expert agents for each application.\n"
+        #     "Use the expert agent tools to delegate tasks efficiently and concisely when appropriate.\n"
+        #     "Ensure all provided instructions are minimal, and do not include any unnecessary details that are outisde of the scope of the subagent's capabilities.\n"
+        #     "Do NOT give more qualifiers or conditions until misalignment is explicitly detected in <relevant_multiagent_context> to maintain efficiency.\n"
+        #     "The expert agents are to be considered junior interns. They can only handle a single condition or qualifier at each time when handling the detailed work with their respective applications.\n\n"
+        #     "<cortex_guidance>\n"
+        #     "You have privileged access to traces and tool calls via the shared Cortex, injected under the <relevant_multiagent_context> tag. When solving a task:\n"
+        #     "- Traces are formatted with the relevant <episode_id>, <raw_trace>, and <summary> tags. All traces in <relevant_multiagent_context> are the **ground truth** for what has happened so far in the environment, EVEN IF the subagent has not explicitly mentioned it in their response.\n"
+        #     "- ALWAYS begin your todo list with a step to review the <relevant_multiagent_context> and verify that any subagents that acted in the past step are explicitly in line with what the user requested, even if you are ready to return to the user; do NOT return to the user until you have evaluated the most recent <relevant_multiagent_context>.\n"
+        #     "   - If there are no misalignments or erroneous actions, you can continue with your workflow. Add any new actions that have arisen since the last step to the todo list IMMEDIATELY in your thought trace with status updates.\n"
+        #     "   - If misalignments are detected, IMMEDIATELY add any redelegations, rollbacks, or other items to the todo list in the ensuing thought trace and execute the relevant redelegation Action.\n"
+        #     "- **Be highly critical and careful in your examination of the traces and context.** Reason thoroughly and carefully through the traces to detect any misalignment with the user instructions, including unwanted actions, incorrect tool usage or arguments, or other misbehavior.\n"
+        #     "- Any misalignment or erroneous actions detected within the <relevant_multiagent_context> should be reason to REDELEGATE IMMEDIATELY with instructions to undo any unwanted actions and conduct the correct action. Do NOT return to the user until you are sure your actions are both STRICTLY necessary and STRICTLY sufficient, even if you have everything you need already. You NEED to make sure that any false or erroneous actions have been rolled back.\n"
+        #     "</cortex_guidance>\n"
+        #     "<misalignment_and_redelegate_guidance>\n"
+        #     "- **Misalignment takes precedence over task completion.** You MUST REDELEGATE IMMEDIATELY if you detect misalignment in a past agent trace, EVEN IF the task seems to have been successfully completed already and you are ready to return to the user.\n"
+        #     "- If you detect misalignment, such as a subagent incorrectly reasoning on existing information, calling the wrong tool, calling extra unwanted tools, or using the wrong arguments, **immediately REDELEGATE** with more explicit instructions, naming tools, arguments, and conditions (what the subagent SHOULD do, SHOULD revert, and SHOULD NOT do).\n\n"
+        #     "- You should EXPLICITLY OBEY the user instructions and roll back any actions that you detect that are not in accordance with the user instructions.\n"
+        #     "\n\n"
+        #     "<misalignment_examples>\n"
+        #     "- Subagent chooses a more expensive option when the cheapest option is requested.\n"
+        #     "- Subagent incorrectly uses the wrong arguments by calling the tool `list_rides` with the wrong start_location/end_location.\n"
+        #     "- Subagent incorrectly uses the wrong arguments by calling the tool `order_ride` with the wrong service_type.\n"
+        #     "- Subagent incorrectly calls a tool when **not requested** or when not relevant to the task at hand.\n"
+        #     "</misalignment_examples>\n"
+        #     # "## Cab-specific episode redelegation guidance (applies whenever CabApp is involved and ONLY when redelegating):\n"
+        #     # "- For 'cheapest ride' requests (e.g., Downtown -> Airport):\n"
+        #     # "  * Check whether an episode exists with CabApp.list_rides called with the correct start_location/end_location.\n"
+        #     # "  * If not, and/or if an episode exists where CabApp.order_ride used a non-cheapest service_type (e.g., 'Premium' instead of "
+        #     # "'Default'), issue a follow-up delegation that:\n"
+        #     # "    - Requires calling list_rides(start_location=..., end_location=...) first, and\n"
+        #     # "    - Then requires booking the cheapest service by calling order_ride with the appropriate "
+        #     # "service_type and locations.\n"
+        #     # "- For requests that explicitly say 'do not book yet' or 'just give options':\n"
+        #     # "  * Treat any episode where CabApp.order_ride was called as misbehavior.\n"
+        #     # "  * If you detect misalignment, do NOT terminate; redelegate IMMEDIATELY and instruct the subagent with specific conditions to undo the unwanted booking and"
+        #     # "to use ONLY quotation tools (list_rides / get_quotation) until you, the orchestrator, explicitly instruct the subagent to book a ride.\n"
+        #     # "- For booking tasks involving CabApp, always cross-check the user's requested origin/destination "
+        #     # "against the arguments used in Cab tools. If start_location/end_location are swapped or stale in any episode relative "
+        #     # "to the user request, issue a corrective delegation that specifies the correct named arguments and "
+        #     # "requires a new tool call.\n"
+        #     "</misalignment_and_redelegate_guidance>\n"
+        # )
         
         if hasattr(self.react_agent, 'init_system_prompts'):
             self.react_agent.init_system_prompts["system_prompt"] += orchestrator_instructions

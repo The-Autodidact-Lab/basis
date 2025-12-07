@@ -379,8 +379,8 @@ class ContextCortex:
         )
         
         # Log summary at the end
-        if total_episodes > 0:
-            self._log_cortex_summary()
+        # if total_episodes > 0:
+        #     self._log_cortex_summary()
         
         return accessible
     

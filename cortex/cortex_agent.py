@@ -4,6 +4,9 @@ from decimal import Context
 from typing import Any, Dict, Optional, Union
 import os
 from dotenv import load_dotenv
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -109,6 +112,7 @@ class CortexAgent(BaseAgent):
 
     def __init__(self, api_key: str, cortex: ContextCortex):
         self.api_key = api_key
+        # logger.info(f"CortexAgent API key: {self.api_key}")
         self.cortex = cortex
         self._pending_ingest: Optional[Dict[str, Any]] = None
 
@@ -134,7 +138,7 @@ class CortexAgent(BaseAgent):
         )
 
         system_prompt = REACT_LOOP_JSON_SYSTEM_PROMPT.format(
-            json_agent_hints=JSON_AGENT_HINTS
+            json_agent_hints=JSON_AGENT_HINTS,
         )
 
         super().__init__(
@@ -215,17 +219,22 @@ Use these agent masks when deciding which agents should see this episode. Match 
         
         task = f"""You are given an agent trace + the 4 most recent contextual logs to ingest into the shared Cortex memory.
 
-[TRACE]
+<trace>
 {trace_repr}
+</trace>
 
 {agents_info}
 
 Your task:
 1. Read and understand the trace and context.
-2. Produce a concise, high-signal summary (2–5 sentences) of ONLY the last trace. When summarising, make sure to include any specific figures or information clearly that is immediately relevant to the task at hand.
+2. Produce a concise, high-signal summary (2–5 sentences) of the most recent trace IF its return value is not None. When summarising:
+    - You MUST include EVERY SINGLE action that was taken, in order, and the results of each action. ALWAYS include the explicit tool call **by name**, arguments passed in, and results returned. Do NOT truncate or make assumptions about the tool call; include the entire tool call in the summary where possible.
+    - IGNORE any None return or Observation values in the trace; they signify a standard successful tool call. Do NOT include them in the summary; instead, skip that tool call result and ONLY include the tool call name and arguments.
+    - Include any specific figures, numbers, or named information clearly that is immediately relevant to the task at hand.
+    - You may pull information from the previous traces to help you summarize the most recent trace, but your summary MUST apply explicitly to the most recent trace and all actions within the provided context.
 3. Decide on an appropriate access-control mask string `mask_str` (binary like "1", "10", "11") indicating which agent groups should see this episode.
 4. Call the `ingest_episode` tool EXACTLY ONCE with:
-   - trace_summary: your summary of ONLY the last trace
+   - trace_summary: your summary of the most recent trace
    - mask_str: the mask string you chose
 
 After successfully calling `ingest_episode`, the task is complete. Do not provide any additional output or confirmation.
@@ -258,7 +267,7 @@ Choose the mask based on which agent groups would benefit from seeing this conte
 """
 
         try:
-            result: Union[str, MMObservation, None] = super().run(task, reset=True)
+            result: Union[str, MMObservation, None] = super().run(task, reset=True, log=False)
         finally:
             self._pending_ingest = None
 

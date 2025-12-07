@@ -13,6 +13,7 @@ from are.simulation.agents.default_agent.termination_methods.are_simulation impo
 )
 from are.simulation.apps import App
 from are.simulation.apps.agent_user_interface import AgentUserInterface
+from are.simulation.apps.system import SystemApp
 from are.simulation.tools import Tool
 from are.simulation.subagent_tool import SubagentTool
 from are.simulation.tool_utils import AppToolAdapter
@@ -115,6 +116,7 @@ class DefaultMultiAgent:
         # prevent uninitalised weird stuff
         self.app_agents = []
         aui_tools_dict = {}
+        sys_tools_dict = {}
 
         # create default app agents for each app
         for app in apps:
@@ -137,7 +139,13 @@ class DefaultMultiAgent:
                     for tool in filtered_aui_tools
                 }
                 continue
-            
+            elif isinstance(app, SystemApp):
+                sys_tools_dict = {
+                    tool.name: AppToolAdapter(tool)
+                    for tool in app.get_tools()
+                }
+                continue
+
             # all other apps
             app_tools_dict = {
                 tool.name: AppToolAdapter(tool) for tool in app.get_tools()
@@ -146,14 +154,10 @@ class DefaultMultiAgent:
 
             app_kwargs = {k: v for k, v in kwargs.items() if k != "system_prompts"}
 
-            # Use a scenario- and app-specific system prompt so that CabApp can
-            # express confounder behaviors, while other apps keep the default.
-            app_system_prompt = _get_app_system_prompt(app.name, scenario_id)
-
             app_base_agent = BaseAgent(
                 tools=app_tools_dict,
                 action_executor=JsonActionExecutor(tools=app_tools_dict),
-                system_prompts={"system_prompt": app_system_prompt},
+                system_prompts={"system_prompt": _get_app_system_prompt(app.name, scenario_id)},
                 termination_step=termination_step_are_simulation_final_answer(),
                 **app_kwargs,
             )
@@ -178,7 +182,7 @@ class DefaultMultiAgent:
             for app_agent in self.app_agents
         }
         
-        orchestrator_tools = {**self.subagents, **aui_tools_dict, "final_answer": FinalAnswerTool()}
+        orchestrator_tools = {**self.subagents, **aui_tools_dict, **sys_tools_dict, "final_answer": FinalAnswerTool()}
 
         self.orchestrator = BaseAgent(
             tools=orchestrator_tools,
