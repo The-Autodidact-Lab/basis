@@ -62,10 +62,10 @@ AGENTS = {
 }
 
 # Pass^k values to test
-PASS_AT_K_VALUES = [1, 2, 5, 10, 20]
+PASS_AT_K_VALUES = [1, 2, 5, 10]
 
 # Number of independent sets to run for each k value
-NUM_SETS = 20
+NUM_SETS = 10
 
 
 def run_scenario(

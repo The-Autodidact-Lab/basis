@@ -19,6 +19,7 @@ dependencies = [
     "pdfminer-six>=20231228",
     "strawberry-graphql>=0.287.0",
     "matplotlib>=3.10.7",
+    "numpy>=2.3.5",
 ]
 
 [tool.pytest.ini_options]
